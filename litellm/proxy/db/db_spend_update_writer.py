@@ -1740,15 +1740,14 @@ class DBSpendUpdateWriter:
             for i in range(n_retry_times + 1):
                 start_time = time.time()
                 try:
-                    async with _spend_update_tx(prisma_client) as transaction:
-                        async with transaction.batch_() as batcher:
-                            for key, response_cost in sorted(org_member_list_transactions.items()):
-                                organization_id = key.split("::")[1]
-                                user_id = key.split("::")[3]
-                                batcher.litellm_organizationmembership.update_many(
-                                    where={"organization_id": organization_id, "user_id": user_id},
-                                    data={"spend": {"increment": response_cost}},
-                                )
+                    async with _spend_update_tx(prisma_client) as transaction, transaction.batch_() as batcher:
+                        for key, response_cost in sorted(org_member_list_transactions.items()):
+                            organization_id = key.split("::")[1]
+                            user_id = key.split("::")[3]
+                            batcher.litellm_organizationmembership.update_many(
+                                where={"organization_id": organization_id, "user_id": user_id},
+                                data={"spend": {"increment": response_cost}},
+                            )
                     break
                 except Exception as e:
                     await self._handle_spend_update_failure(
