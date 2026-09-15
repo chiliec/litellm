@@ -3401,7 +3401,8 @@ class StandardLoggingPayload(ClassifierAudit):
     stream: bool | None
     response_cost: float
     cost_breakdown: CostBreakdown | None  # Detailed cost breakdown
-    autorouter_savings: ReadOnly[float | None]  # None = not an auto-routed caller request; 0.0 is a real figure
+    autorouter_savings: ReadOnly[float | None]
+    autorouter_savings_estimate: ReadOnly[Mapping[str, JsonValue] | None]
     response_cost_failure_debug_info: StandardLoggingModelCostFailureDebugInformation | None
     status: StandardLoggingPayloadStatus
     status_fields: StandardLoggingPayloadStatusFields

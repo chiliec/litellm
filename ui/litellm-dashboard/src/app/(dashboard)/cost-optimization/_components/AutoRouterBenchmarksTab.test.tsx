@@ -68,6 +68,8 @@ const totals = (overrides: Partial<Totals> = {}): Totals => ({
   avg_session_seconds: 7560,
   avg_tokens_per_session: 5_300_000,
   spend: 359.86,
+  savings_estimated_turns: overrides.turns ?? 3073,
+  savings_estimated_actual_spend: overrides.spend ?? 359.86,
   classifier_cost: 6.146,
   saved_spend: 2174.59,
   baseline_spend: 2534.45,
@@ -100,6 +102,8 @@ const zeroTotals: Totals = {
   avg_session_seconds: 0,
   avg_tokens_per_session: 0,
   spend: 0,
+  savings_estimated_turns: 0,
+  savings_estimated_actual_spend: 0,
   classifier_cost: 0,
   saved_spend: 0,
   baseline_spend: 0,
@@ -151,6 +155,32 @@ const renderTab = () => {
 describe("AutoRouterBenchmarksTab", () => {
   beforeEach(() => {
     mockAutoRouters();
+  });
+
+  it.each([0, 10])("separates all actual spend from a cohort of %i estimated turns", (estimatedTurns) => {
+    const cohort = {
+      savings_estimated_turns: estimatedTurns,
+      savings_estimated_actual_spend: estimatedTurns ? 2 : 0,
+      saved_spend: estimatedTurns ? -0.5 : null,
+      baseline_spend: estimatedTurns ? 1.5 : null,
+      saved_pct: estimatedTurns ? -33.3 : null,
+      saved_per_session: null,
+    };
+    const partial = totals(cohort);
+    mockHook({ data: response([], partial) });
+    renderTab();
+    expect(screen.getByText("Estimated savings on covered turns")).toBeInTheDocument();
+    expect(screen.getByText(`${estimatedTurns} of 3,073 turns estimated`)).toBeInTheDocument();
+    expect(screen.getByText("$359.86")).toBeInTheDocument();
+    expect(screen.getByText("Actual spend on covered turns")).toBeInTheDocument();
+    expect(screen.getByText("Estimated baseline spend on covered turns")).toBeInTheDocument();
+    expect(screen.getAllByText("Unavailable")).toHaveLength(estimatedTurns ? 1 : 3);
+    if (estimatedTurns) {
+      expect(screen.getByText("-$0.5000")).toBeInTheDocument();
+      expect(screen.getByText("+33%")).toBeInTheDocument();
+    } else {
+      expect(screen.queryByText("+0%")).not.toBeInTheDocument();
+    }
   });
 
   it("leads with total estimated savings, before the four session-shape metrics", () => {

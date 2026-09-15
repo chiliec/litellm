@@ -11,6 +11,19 @@ Unlike the semantic `auto_router` which uses embedding-based matching, the `comp
 - **Predictable behavior** - rule-based scoring is deterministic
 - **Fully configurable** - weights, thresholds, and keyword lists can be customized
 
+## Savings estimates
+
+The Cost Optimization dashboard compares routed spend with an estimate of sending the same requests to the configured highest-tier baseline model. Actual spend includes recorded classifier costs. A negative estimate can reflect real cache-write costs when switching models, even when the selected model has cheaper token prices
+
+For supported native Anthropic `/v1/messages` requests, the proxy tracks the hypothetical baseline cache separately from the caches of the models that actually serve requests. A baseline read requires a matching prompt prefix that was available before the request and remains inside its five-minute or one-hour TTL. A request served by a cheaper model also advances the hypothetical baseline history. An assistant message alone never establishes a cache hit
+
+Use a stable session ID and configure the proxy's coordination Redis through `general_settings.coordination_redis` (for example, `{host: redis, port: 6379}`) or reachable `REDIS_HOST` and `REDIS_PORT` environment variables to preserve this history across proxy workers and restarts. Setting only `router_settings.redis_host` and `router_settings.redis_port` does not configure the estimator's shared history. Spend metadata records `autorouter_savings_estimate` with a version, `estimated` or `unknown` status, and a reason. Missing history, unsupported request shapes, failed token counts, and ambiguous retries produce unknown savings. Cold-start history can remain incomplete until the relevant TTL passes; an exact observed prefix can establish a hit earlier. The estimator uses baseline token counts and the actual response's output-token count, so it does not predict how the baseline model would answer
+
+Baseline counting requires the same endpoint and API key as the request that served the user; another endpoint or credential produces `unknown` with reason `unsupported_baseline_recipient`. Configured Anthropic-compatible gateways must support native token counting for every cache prefix, including system/tools-only prefixes with an empty `messages` array. If a gateway rejects one of these counts, the turn remains `unknown` with reason `token_count_unavailable`, even when later prefixes can be counted. The estimator does not substitute local tokenizers, synthetic messages, or partial prefix counts
+
+The Auto-Router dashboard shows how many turns have a current estimate and compares baseline cost with actual spend for those turns. Total actual spend remains visible. Historical estimates are preserved in spend logs and daily recorded subtotals, but excluded from current estimate coverage. Existing session-status clients receive no baseline total when coverage is partial
+
+
 ## How It Works
 
 The router scores each request across 7 dimensions:

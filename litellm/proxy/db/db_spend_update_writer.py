@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, cast, overload
 
+from pydantic import TypeAdapter
+
 import litellm
 from litellm._logging import verbose_proxy_logger
 from litellm.caching import RedisCache
@@ -83,6 +85,7 @@ else:
 
 
 RESPONSES_SESSION_CALL_TYPES: Final = frozenset({CallTypes.responses.value, CallTypes.aresponses.value})
+_SPEND_METADATA_ADAPTER: Final = TypeAdapter(Mapping[str, object])
 
 
 def _is_batch_cost_row(payload: SpendLogsPayload) -> bool:
@@ -483,25 +486,31 @@ class DBSpendUpdateWriter:
             metadata_raw: Final = payload.get("metadata")
             if not metadata_raw:
                 return
-            metadata: Final = json.loads(metadata_raw)
-            if not isinstance(metadata, dict) or not metadata.get("routing_decision"):
+            metadata: Final = _SPEND_METADATA_ADAPTER.validate_json(metadata_raw)
+            routing_decision: Final = metadata.get("routing_decision")
+            if not isinstance(routing_decision, Mapping) or not routing_decision:
                 return
             from litellm.proxy.db.autorouter_session_rollup import (
                 build_autorouter_turn_transaction,
             )
 
             usage_object_raw: Final = metadata.get("usage_object")
+            cost_breakdown: Final = metadata.get("cost_breakdown")
+            savings_estimate: Final = metadata.get("autorouter_savings_estimate")
             savings_spend: Final = compute_savings_spend(
                 model=payload.get("model"),
                 custom_llm_provider=payload.get("custom_llm_provider"),
                 compression_saved_tokens=0,
                 gateway_injected_cache=marks_gateway_injection(metadata, payload.get("model_id")),
-                routing_decision=metadata.get("routing_decision"),
+                routing_decision=routing_decision,
                 usage_object=usage_object_raw if isinstance(usage_object_raw, dict) else None,
                 model_id=payload.get("model_id"),
                 llm_router=get_llm_router,
-                cost_breakdown=metadata.get("cost_breakdown"),
+                cost_breakdown=cost_breakdown if isinstance(cost_breakdown, Mapping) else None,
                 recorded_autorouter_savings=metadata.get("autorouter_savings"),
+                recorded_autorouter_savings_estimate=(
+                    savings_estimate if isinstance(savings_estimate, Mapping) else None
+                ),
                 billed_at=payload.get("endTime"),
             )
             transaction: Final = build_autorouter_turn_transaction(
@@ -2189,6 +2198,7 @@ class DBSpendUpdateWriter:
                 usage_object=usage_obj,
                 cost_breakdown=_metadata.get("cost_breakdown"),
                 recorded_autorouter_savings=_metadata.get("autorouter_savings"),
+                recorded_autorouter_savings_estimate=_metadata.get("autorouter_savings_estimate"),
                 billed_at=payload.get("endTime"),
             )
 
