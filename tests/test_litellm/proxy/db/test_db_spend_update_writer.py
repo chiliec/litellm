@@ -778,8 +778,8 @@ async def test_update_org_db_enqueues_org_member_spend():
 
     await writer._update_org_db(
         response_cost=0.4,
-        org_id="org-123",
-        user_id="user-456",
+        org_id="org::123",
+        user_id="user::456",
         prisma_client=MagicMock(),
     )
 
@@ -789,7 +789,7 @@ async def test_update_org_db_enqueues_org_member_spend():
     org_member_update = writer.spend_update_queue.add_update.await_args_list[1].kwargs["update"]
     assert org_member_update == {
         "entity_type": Litellm_EntityType.ORGANIZATION_MEMBER,
-        "entity_id": "organization_id::org-123::user_id::user-456",
+        "entity_id": "organization_id::org%3A%3A123::user_id::user%3A%3A456",
         "response_cost": 0.4,
     }
 
@@ -987,7 +987,7 @@ async def test_commit_spend_updates_to_db_increments_org_member_spend():
     mock_prisma_client.db.tx = MagicMock(return_value=mock_transaction)
     transactions = _empty_spend_transactions(
         org_member_list_transactions={
-            "organization_id::org-123::user_id::user-456": 0.4,
+            "organization_id::org%3A%3A123::user_id::user%3A%3A456": 0.4,
         }
     )
 
@@ -1000,7 +1000,7 @@ async def test_commit_spend_updates_to_db_increments_org_member_spend():
         )
 
     mock_batcher.litellm_organizationmembership.update_many.assert_called_once_with(
-        where={"organization_id": "org-123", "user_id": "user-456"},
+        where={"organization_id": "org::123", "user_id": "user::456"},
         data={"spend": {"increment": 0.4}},
     )
 

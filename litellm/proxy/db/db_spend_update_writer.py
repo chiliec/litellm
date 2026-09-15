@@ -16,6 +16,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, cast, overload
+from urllib.parse import quote, unquote
 
 import litellm
 from litellm._logging import verbose_proxy_logger
@@ -83,6 +84,17 @@ else:
 
 
 RESPONSES_SESSION_CALL_TYPES: Final = frozenset({CallTypes.responses.value, CallTypes.aresponses.value})
+
+
+def _build_org_member_transaction_key(organization_id: str, user_id: str) -> str:
+    return f"organization_id::{quote(organization_id, safe='')}::user_id::{quote(user_id, safe='')}"
+
+
+def _parse_org_member_transaction_key(key: str) -> tuple[str, str]:
+    parts = key.split("::")
+    if len(parts) != 4 or parts[0] != "organization_id" or parts[2] != "user_id":
+        raise ValueError(f"Invalid organization member transaction key: {key}")
+    return unquote(parts[1]), unquote(parts[3])
 
 
 def _is_batch_cost_row(payload: SpendLogsPayload) -> bool:
@@ -921,7 +933,7 @@ class DBSpendUpdateWriter:
 
             try:
                 if user_id is not None:
-                    org_member_key: Final = f"organization_id::{org_id}::user_id::{user_id}"
+                    org_member_key: Final[str] = _build_org_member_transaction_key(org_id, user_id)
                     await self.spend_update_queue.add_update(
                         update=SpendUpdateQueueItem(
                             entity_type=Litellm_EntityType.ORGANIZATION_MEMBER,
@@ -1742,8 +1754,9 @@ class DBSpendUpdateWriter:
                 try:
                     async with _spend_update_tx(prisma_client) as transaction, transaction.batch_() as batcher:
                         for key, response_cost in sorted(org_member_list_transactions.items()):
-                            organization_id = key.split("::")[1]
-                            user_id = key.split("::")[3]
+                            organization_id: Final[str]
+                            user_id: Final[str]
+                            organization_id, user_id = _parse_org_member_transaction_key(key)
                             batcher.litellm_organizationmembership.update_many(
                                 where={"organization_id": organization_id, "user_id": user_id},
                                 data={"spend": {"increment": response_cost}},
