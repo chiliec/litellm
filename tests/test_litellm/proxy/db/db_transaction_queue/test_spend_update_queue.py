@@ -220,6 +220,30 @@ async def test_aggregate_queue_updates_accuracy(spend_queue):
     assert aggregated["team_list_transactions"]["team1"] == 5.0
 
 
+@pytest.mark.asyncio
+async def test_organization_member_updates_aggregate(spend_queue):
+    await spend_queue.add_update(
+        {
+            "entity_type": Litellm_EntityType.ORGANIZATION_MEMBER,
+            "entity_id": "organization_id::org-1::user_id::user-1",
+            "response_cost": 0.4,
+        }
+    )
+    await spend_queue.add_update(
+        {
+            "entity_type": Litellm_EntityType.ORGANIZATION_MEMBER,
+            "entity_id": "organization_id::org-1::user_id::user-1",
+            "response_cost": 0.6,
+        }
+    )
+
+    aggregated = await spend_queue.flush_and_get_aggregated_db_spend_update_transactions()
+
+    assert aggregated["org_member_list_transactions"] == {
+        "organization_id::org-1::user_id::user-1": 1.0,
+    }
+
+
 def test_get_aggregated_spend_update_queue_item_does_not_mutate_original_updates(
     spend_queue,
 ):

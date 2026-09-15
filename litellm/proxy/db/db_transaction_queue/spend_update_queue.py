@@ -137,6 +137,7 @@ class SpendUpdateQueue(BaseUpdateQueue):
             team_list_transactions={},
             team_member_list_transactions={},
             org_list_transactions={},
+            org_member_list_transactions={},
             tag_list_transactions={},
             agent_list_transactions={},
             model_access_group_list_transactions={},
@@ -150,6 +151,7 @@ class SpendUpdateQueue(BaseUpdateQueue):
             Litellm_EntityType.TEAM: "team_list_transactions",
             Litellm_EntityType.TEAM_MEMBER: "team_member_list_transactions",
             Litellm_EntityType.ORGANIZATION: "org_list_transactions",
+            Litellm_EntityType.ORGANIZATION_MEMBER: "org_member_list_transactions",
             Litellm_EntityType.TAG: "tag_list_transactions",
             Litellm_EntityType.AGENT: "agent_list_transactions",
             Litellm_EntityType.MODEL_ACCESS_GROUP: "model_access_group_list_transactions",
@@ -186,6 +188,8 @@ class SpendUpdateQueue(BaseUpdateQueue):
                 transactions_dict = db_spend_update_transactions["team_list_transactions"]
             elif dict_key == "team_member_list_transactions":
                 transactions_dict = db_spend_update_transactions["team_member_list_transactions"]
+            elif dict_key == "org_member_list_transactions":
+                transactions_dict = db_spend_update_transactions["org_member_list_transactions"]
             elif dict_key == "org_list_transactions":
                 transactions_dict = db_spend_update_transactions["org_list_transactions"]
             elif dict_key == "tag_list_transactions":
@@ -200,7 +204,7 @@ class SpendUpdateQueue(BaseUpdateQueue):
             if transactions_dict is None:
                 transactions_dict = {}
 
-                # type ignore: dict_key is guaranteed to be one of "one of ("user_list_transactions", "end_user_list_transactions", "key_list_transactions", "team_list_transactions", "team_member_list_transactions", "org_list_transactions")"
+                # type ignore: dict_key is guaranteed to be one of the transaction fields
                 db_spend_update_transactions[dict_key] = transactions_dict
 
             if entity_id not in transactions_dict:

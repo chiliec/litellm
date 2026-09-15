@@ -93,6 +93,7 @@ def _empty_transactions(**overrides: dict[str, float]) -> DBSpendUpdateTransacti
         team_list_transactions=overrides.get("team_list_transactions", {}),
         team_member_list_transactions=overrides.get("team_member_list_transactions", {}),
         org_list_transactions=overrides.get("org_list_transactions", {}),
+        org_member_list_transactions=overrides.get("org_member_list_transactions", {}),
         tag_list_transactions=overrides.get("tag_list_transactions", {}),
         agent_list_transactions=overrides.get("agent_list_transactions", {}),
         model_access_group_list_transactions=overrides.get("model_access_group_list_transactions", {}),

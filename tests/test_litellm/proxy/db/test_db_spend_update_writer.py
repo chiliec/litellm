@@ -772,6 +772,29 @@ async def test_update_agent_db_enqueues_agent_spend():
 
 
 @pytest.mark.asyncio
+async def test_update_org_db_enqueues_org_member_spend():
+    writer = DBSpendUpdateWriter()
+    writer.spend_update_queue.add_update = AsyncMock()
+
+    await writer._update_org_db(
+        response_cost=0.4,
+        org_id="org-123",
+        user_id="user-456",
+        prisma_client=MagicMock(),
+    )
+
+    assert writer.spend_update_queue.add_update.await_args_list[0].kwargs["update"]["entity_type"] == (
+        Litellm_EntityType.ORGANIZATION
+    )
+    org_member_update = writer.spend_update_queue.add_update.await_args_list[1].kwargs["update"]
+    assert org_member_update == {
+        "entity_type": Litellm_EntityType.ORGANIZATION_MEMBER,
+        "entity_id": "organization_id::org-123::user_id::user-456",
+        "response_cost": 0.4,
+    }
+
+
+@pytest.mark.asyncio
 async def test_update_agent_db_skips_when_agent_id_none():
     """_update_agent_db does not enqueue when agent_id is None."""
     writer = DBSpendUpdateWriter()
@@ -851,6 +874,7 @@ async def test_commit_spend_updates_to_db_increments_agent_spend():
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {agent_id: response_cost},
     }
@@ -923,6 +947,7 @@ async def test_commit_spend_updates_to_db_increments_team_member_spend_and_total
         "team_list_transactions": {},
         "team_member_list_transactions": {entity_id: response_cost},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -942,6 +967,42 @@ async def test_commit_spend_updates_to_db_increments_team_member_spend_and_total
         "spend": {"increment": response_cost},
         "total_spend": {"increment": response_cost},
     }
+
+
+@pytest.mark.asyncio
+async def test_commit_spend_updates_to_db_increments_org_member_spend():
+    db_writer = DBSpendUpdateWriter()
+    mock_batcher = MagicMock()
+    mock_batcher.litellm_organizationmembership.update_many = MagicMock()
+    mock_transaction = AsyncMock()
+    mock_transaction.__aenter__ = AsyncMock(return_value=mock_transaction)
+    mock_transaction.__aexit__ = AsyncMock(return_value=False)
+    mock_transaction.batch_ = MagicMock(
+        return_value=AsyncMock(
+            __aenter__=AsyncMock(return_value=mock_batcher),
+            __aexit__=AsyncMock(return_value=False),
+        )
+    )
+    mock_prisma_client = MagicMock()
+    mock_prisma_client.db.tx = MagicMock(return_value=mock_transaction)
+    transactions = _empty_spend_transactions(
+        org_member_list_transactions={
+            "organization_id::org-123::user_id::user-456": 0.4,
+        }
+    )
+
+    with patch("litellm.proxy.utils._raise_failed_update_spend_exception"):
+        await db_writer._commit_spend_updates_to_db(
+            prisma_client=mock_prisma_client,
+            n_retry_times=0,
+            proxy_logging_obj=MagicMock(),
+            db_spend_update_transactions=transactions,
+        )
+
+    mock_batcher.litellm_organizationmembership.update_many.assert_called_once_with(
+        where={"organization_id": "org-123", "user_id": "user-456"},
+        data={"spend": {"increment": 0.4}},
+    )
 
 
 @pytest.mark.asyncio
@@ -1509,6 +1570,7 @@ async def test_commit_key_spend_updates_includes_last_active():
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -1768,6 +1830,7 @@ async def test_commit_with_redis_requeues_all_on_db_failure():
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -1823,6 +1886,7 @@ async def test_commit_with_redis_only_requeues_failed_category():
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -1872,6 +1936,7 @@ async def test_commit_with_redis_no_requeue_on_success():
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -2099,6 +2164,7 @@ async def test_commit_spend_updates_iterates_in_sorted_order(
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -2682,6 +2748,7 @@ async def test_commit_spend_updates_to_db_does_not_stamp_key_settings_updated_at
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -2764,6 +2831,7 @@ def _empty_spend_transactions(**overrides):
         "team_list_transactions": {},
         "team_member_list_transactions": {},
         "org_list_transactions": {},
+        "org_member_list_transactions": {},
         "tag_list_transactions": {},
         "agent_list_transactions": {},
     }
@@ -2904,6 +2972,7 @@ async def test_update_daily_spend_retries_deadlock(monkeypatch):
         ("team_list_transactions", "team-1"),
         ("team_member_list_transactions", "team_id::team-1::user_id::user-1"),
         ("org_list_transactions", "org-1"),
+        ("org_member_list_transactions", "organization_id::org-1::user_id::user-1"),
         ("tag_list_transactions", "tag-1"),
         ("agent_list_transactions", "agent-1"),
     ],

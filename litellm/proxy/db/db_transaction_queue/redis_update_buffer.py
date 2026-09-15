@@ -69,6 +69,7 @@ _SpendTransactionField: TypeAlias = Literal[
     "team_list_transactions",
     "team_member_list_transactions",
     "org_list_transactions",
+    "org_member_list_transactions",
     "tag_list_transactions",
     "agent_list_transactions",
     "model_access_group_list_transactions",
@@ -81,6 +82,7 @@ _SPEND_TRANSACTION_FIELDS: Final[tuple[_SpendTransactionField, ...]] = (
     "team_list_transactions",
     "team_member_list_transactions",
     "org_list_transactions",
+    "org_member_list_transactions",
     "tag_list_transactions",
     "agent_list_transactions",
     "model_access_group_list_transactions",
@@ -409,6 +411,10 @@ class RedisUpdateBuffer:
                     db_spend_update_transactions.get("team_member_list_transactions"),
                 ),
                 (
+                    Litellm_EntityType.ORGANIZATION_MEMBER,
+                    db_spend_update_transactions.get("org_member_list_transactions"),
+                ),
+                (
                     Litellm_EntityType.ORGANIZATION,
                     db_spend_update_transactions.get("org_list_transactions"),
                 ),
@@ -555,6 +561,7 @@ class RedisUpdateBuffer:
                     team_list_transactions={},
                     team_member_list_transactions={},
                     org_list_transactions={},
+                    org_member_list_transactions={},
                 ),
                 DBSpendUpdateTransactions(
                     user_list_transactions={
@@ -569,6 +576,7 @@ class RedisUpdateBuffer:
                     team_list_transactions={},
                     team_member_list_transactions={},
                     org_list_transactions={},
+                    org_member_list_transactions={},
             ]
         """
         if self.redis_cache is None:
@@ -876,6 +884,9 @@ class RedisUpdateBuffer:
                 list_of_transactions, "team_member_list_transactions"
             ),
             org_list_transactions=_merged_entity_transactions(list_of_transactions, "org_list_transactions"),
+            org_member_list_transactions=_merged_entity_transactions(
+                list_of_transactions, "org_member_list_transactions"
+            ),
             tag_list_transactions=_merged_entity_transactions(list_of_transactions, "tag_list_transactions"),
             agent_list_transactions=_merged_entity_transactions(list_of_transactions, "agent_list_transactions"),
             model_access_group_list_transactions=_merged_entity_transactions(

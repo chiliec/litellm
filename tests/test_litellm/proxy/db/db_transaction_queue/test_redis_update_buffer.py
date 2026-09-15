@@ -190,6 +190,7 @@ async def test_get_all_transactions_from_redis_buffer_pipeline(redis_update_buff
             "team_list_transactions": {},
             "team_member_list_transactions": {},
             "org_list_transactions": {},
+            "org_member_list_transactions": {"organization_id::org-1::user_id::user-1": 0.75},
             "tag_list_transactions": {},
         }
     )
@@ -238,6 +239,9 @@ async def test_get_all_transactions_from_redis_buffer_pipeline(redis_update_buff
     assert len(window_spend) == 1
     assert window_spend[0]["spend"] == 6.0
     assert window_spend[0]["entity_id"] == "hashed-token"
+    assert db_spend["org_member_list_transactions"] == {
+        "organization_id::org-1::user_id::user-1": 0.75,
+    }
 
     # Verify db spend was parsed correctly
     assert db_spend is not None
