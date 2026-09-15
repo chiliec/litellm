@@ -122,6 +122,7 @@ class _SpendBatch(Protocol):
     litellm_teamtable: BatchTable
     litellm_teammembership: BatchTable
     litellm_organizationtable: BatchTable
+    litellm_organizationmembership: BatchTable
     litellm_tagtable: BatchTable
     litellm_agentstable: BatchTable
     litellm_modelaccessgroupbudgettable: BatchTable
@@ -1754,8 +1755,6 @@ class DBSpendUpdateWriter:
                 try:
                     async with _spend_update_tx(prisma_client) as transaction, transaction.batch_() as batcher:
                         for key, response_cost in sorted(org_member_list_transactions.items()):
-                            organization_id: Final[str]
-                            user_id: Final[str]
                             organization_id, user_id = _parse_org_member_transaction_key(key)
                             batcher.litellm_organizationmembership.update_many(
                                 where={"organization_id": organization_id, "user_id": user_id},
