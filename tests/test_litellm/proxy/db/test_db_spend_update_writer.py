@@ -952,7 +952,9 @@ async def test_commit_spend_updates_to_db_increments_team_member_spend_and_total
         "agent_list_transactions": {},
     }
 
-    with patch("litellm.proxy.utils._raise_failed_update_spend_exception"):
+    with patch(  # test-quality-ok: retry failure hook has no dependency-injection seam
+        "litellm.proxy.utils._raise_failed_update_spend_exception"
+    ):
         await db_writer._commit_spend_updates_to_db(
             prisma_client=mock_prisma_client,
             n_retry_times=0,
